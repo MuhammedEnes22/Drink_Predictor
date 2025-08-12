@@ -84,7 +84,7 @@ st.title("Alcohol Consumption Simulator")
 
 year = st.number_input("Year for simulation", min_value=2000, max_value=2100, value=2025)
 
-capacity = st.number_input("Venue Capacity", min_value=1, value=100)
+capacity = st.number_input("Venue Capacity", min_value=1, max_value=1000, value=100)
 
 # Define default drink_types for user editing
 default_drinks = {
@@ -103,6 +103,7 @@ for drink, params in default_drinks.items():
     avg_drinks = st.number_input(
         f"Avg drinks per guest for {drink}",
         min_value=0.0,
+        max_value=10.0,
         value=float(params['avg_drinks']),
         step=0.1,
         format="%.2f",
@@ -112,6 +113,7 @@ for drink, params in default_drinks.items():
     volume = st.number_input(
         f"Volume per drink (liters) for {drink}",
         min_value=0.0,
+        max_value=5.0,
         value=float(params['volume']),
         step=0.01,
         format="%.3f",
@@ -173,3 +175,4 @@ else:
             ['guests', 'drinks', 'light_liters', 'heavy_liters', 'total_liters']].sum().round(2)
         st.subheader("Monthly Totals")
         st.dataframe(monthly_totals)
+
