@@ -1,10 +1,11 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+import matplotlib.pyplot as plt
 from io import BytesIO
 import zipfile
 
-# Import the simulation functions from the other file
+# Import the simulation function
 from simulation import simulate_flow_based
 
 # --- Streamlit UI ---
@@ -39,10 +40,12 @@ edited_df = st.data_editor(
             format="%.2f",
         ),
         "avg_drinks": st.column_config.NumberColumn(
-            "Avg Drinks", help="Average number of drinks per guest", min_value=0.0, step=0.1, format="%.1f",
+            "Avg Drinks", help="Average number of drinks per guest", min_value=0.0, max_value=10.0, step=0.1,
+            format="%.1f",
         ),
         "volume": st.column_config.NumberColumn(
-            "Volume (L)", help="Volume per drink in liters", min_value=0.0, step=0.01, format="%.2f",
+            "Volume (L)", help="Volume per drink in liters", min_value=0.0, max_value=10.0, step=0.01,
+            format="%.2f",
         ),
     }
 )
@@ -105,10 +108,22 @@ if 'simulation_results_df' in st.session_state:
     st.header("Download Results")
     download_col1, download_col2, download_col3, download_col4 = st.columns(4)
 
-    # --- Use plotly-orca to export the image ---
-    img_buffer = BytesIO()
-    fig_plotly.write_image(img_buffer, format="png", engine="orca")
-    img_buffer.seek(0)
+    # Prepare matplotlib plot for download
+    fig_mpl, ax = plt.subplots(figsize=(14, 7))
+    ax.plot(daily_totals_df['date_only'], daily_totals_df['light_liters'], label='Light Drinks', color='skyblue')
+    ax.plot(daily_totals_df['date_only'], daily_totals_df['heavy_liters'], label='Heavy Drinks', color='orange')
+    ax.plot(daily_totals_df['date_only'], daily_totals_df['total_liters'], label='Total Drinks', color='green',
+            linestyle='--')
+    ax.set_title('Estimated Daily Alcohol Consumption (Liters) Over One Year')
+    ax.set_xlabel('Date')
+    ax.set_ylabel('Liters Consumed')
+    ax.legend()
+    ax.grid(True)
+
+    img_buffer_mpl = BytesIO()
+    fig_mpl.savefig(img_buffer_mpl, format='png')
+    img_buffer_mpl.seek(0)
+    plt.close(fig_mpl)  # Crucial to close the figure to prevent memory leaks
 
     with download_col1:
         # Prepare ZIP in memory
@@ -120,8 +135,8 @@ if 'simulation_results_df' in st.session_state:
             monthly_csv = monthly_totals.to_csv(index=True)
             zf.writestr("monthly_totals.csv", monthly_csv)
 
-            # Add the Plotly-orca exported image to the zip
-            zf.writestr("consumption_plot.png", img_buffer.getvalue())
+            # Add the matplotlib plot to the zip
+            zf.writestr("consumption_plot.png", img_buffer_mpl.getvalue())
 
         zip_buffer.seek(0)
         st.download_button(
@@ -155,7 +170,7 @@ if 'simulation_results_df' in st.session_state:
     with download_col4:
         st.download_button(
             label="Download Plot as PNG",
-            data=img_buffer,
+            data=img_buffer_mpl,
             file_name="consumption_plot.png",
             mime="image/png",
             use_container_width=True
