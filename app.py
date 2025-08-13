@@ -4,7 +4,7 @@ import plotly.express as px
 from io import BytesIO
 import zipfile
 
-# Import the simulation function
+# Import the simulation functions from the other file
 from simulation import simulate_flow_based
 
 # --- Streamlit UI ---
@@ -74,19 +74,19 @@ if 'simulation_results_df' in st.session_state:
 
     st.subheader("Simulation Results")
 
-    # Plotting with Plotly for interactivity
+    # Plotting with Plotly for interactivity (view-only)
     df['date_only'] = df['date'].dt.date
-    daily_totals = df.groupby('date_only')[['light_liters', 'heavy_liters', 'total_liters']].sum().reset_index()
+    daily_totals_df = df.groupby('date_only')[['light_liters', 'heavy_liters', 'total_liters']].sum().reset_index()
 
-    fig = px.line(
-        daily_totals,
+    fig_plotly = px.line(
+        daily_totals_df,
         x='date_only',
         y=['light_liters', 'heavy_liters', 'total_liters'],
         title="Estimated Daily Alcohol Consumption (Liters) Over One Year",
         labels={'value': 'Liters Consumed', 'variable': 'Drink Category', 'date_only': 'Date'},
         color_discrete_map={'light_liters': 'skyblue', 'heavy_liters': 'orange', 'total_liters': 'green'}
     )
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig_plotly, use_container_width=True)
 
     col1, col2 = st.columns(2)
     with col1:
@@ -105,6 +105,11 @@ if 'simulation_results_df' in st.session_state:
     st.header("Download Results")
     download_col1, download_col2, download_col3, download_col4 = st.columns(4)
 
+    # --- Use plotly-orca to export the image ---
+    img_buffer = BytesIO()
+    fig_plotly.write_image(img_buffer, format="png", engine="orca")
+    img_buffer.seek(0)
+
     with download_col1:
         # Prepare ZIP in memory
         zip_buffer = BytesIO()
@@ -115,10 +120,7 @@ if 'simulation_results_df' in st.session_state:
             monthly_csv = monthly_totals.to_csv(index=True)
             zf.writestr("monthly_totals.csv", monthly_csv)
 
-            # Using fig.write_image for plot download
-            img_buffer = BytesIO()
-            fig.write_image(img_buffer, format="png", engine="orca")
-            img_buffer.seek(0)
+            # Add the Plotly-orca exported image to the zip
             zf.writestr("consumption_plot.png", img_buffer.getvalue())
 
         zip_buffer.seek(0)
@@ -151,8 +153,6 @@ if 'simulation_results_df' in st.session_state:
         )
 
     with download_col4:
-        img_buffer = BytesIO()
-        fig.write_image(img_buffer, format="png")
         st.download_button(
             label="Download Plot as PNG",
             data=img_buffer,
