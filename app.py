@@ -3,6 +3,9 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 import matplotlib.pyplot as plt
+from io import BytesIO
+import zipfile
+
 
 # Your existing functions (seasonal_factor, calc_liters_by_category, simulate_flow_based)
 # but slightly adapted to take drink_types as input
@@ -78,8 +81,8 @@ def simulate_flow_based(capacity, year, drink_types):
 
     return pd.DataFrame(records)
 
-# Streamlit UI
 
+# Streamlit UI
 st.title("Alcohol Consumption Simulator")
 
 year = st.number_input("Year for simulation", min_value=2000, max_value=2100, value=2025)
@@ -88,10 +91,10 @@ capacity = st.number_input("Venue Capacity", min_value=1, max_value=1000, value=
 
 # Define default drink_types for user editing
 default_drinks = {
-    'beer': {'category': 'light', 'avg_drinks': 3, 'volume': 0.5, 'share': 0.4},
+    'beer': {'category': 'light', 'avg_drinks': 2.5, 'volume': 0.5, 'share': 0.4},
     'wine': {'category': 'light', 'avg_drinks': 2, 'volume': 0.15, 'share': 0.3},
     'cocktail': {'category': 'heavy', 'avg_drinks': 2, 'volume': 0.2, 'share': 0.2},
-    'raki': {'category': 'heavy', 'avg_drinks': 1, 'volume': 0.1, 'share': 0.1},
+    'rakı': {'category': 'heavy', 'avg_drinks': 1, 'volume': 0.1, 'share': 0.1},
 }
 
 st.write("### Adjust Drink Parameters")
@@ -137,6 +140,7 @@ for drink, params in default_drinks.items():
         'share': share
     }
 
+
 total_share = sum(d['share'] for d in drink_types.values())
 if total_share == 0:
     st.error("Total share cannot be zero. Please adjust shares.")
@@ -147,6 +151,14 @@ else:
 
     if st.button("Run Simulation"):
         df = simulate_flow_based(capacity=capacity, year=year, drink_types=drink_types)
+
+        # Convert drink_types to DataFrame
+        drink_types_df = pd.DataFrame([
+            {"Drink": drink, **params} for drink, params in drink_types.items()
+        ])
+
+        st.subheader("Drink Types")
+        st.dataframe(drink_types_df)
 
         # Plotting
         df['date_only'] = df['date'].dt.date
@@ -176,3 +188,34 @@ else:
         st.subheader("Monthly Totals")
         st.dataframe(monthly_totals)
 
+        # Store the figure in memory
+        img_buffer = BytesIO()
+        fig.savefig(img_buffer, format='png')
+        img_buffer.seek(0)
+
+        # Prepare ZIP in memory
+        zip_buffer = BytesIO()
+        with zipfile.ZipFile(zip_buffer, "w") as zf:
+            # Add yearly totals CSV
+            yearly_csv = yearly_totals.to_csv(index=False)
+            zf.writestr("yearly_totals.csv", yearly_csv)
+
+            # Add monthly totals CSV
+            monthly_csv = monthly_totals.to_csv(index=False)
+            zf.writestr("monthly_totals.csv", monthly_csv)
+
+            # Add drink types CSV
+            zf.writestr("drink_types.csv", drink_types_df.to_csv(index=False))
+
+            # Add plot image
+            zf.writestr("results_plot.png", img_buffer.getvalue())
+
+        zip_buffer.seek(0)
+
+        # Single download button
+        st.download_button(
+            label="Download All Results",
+            data=zip_buffer,
+            file_name="simulation_results.zip",
+            mime="application/zip"
+        )
