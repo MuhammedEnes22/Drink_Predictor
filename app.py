@@ -117,7 +117,7 @@ if 'simulation_results_df' in st.session_state:
 
             # Using fig.write_image for plot download
             img_buffer = BytesIO()
-            fig.write_image(img_buffer, format="png")
+            fig.write_image(img_buffer, format="png", engine="orca")
             img_buffer.seek(0)
             zf.writestr("consumption_plot.png", img_buffer.getvalue())
 
